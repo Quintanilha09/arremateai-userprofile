@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -91,8 +92,15 @@ public class PerfilService {
             throw new BusinessException("Avatar não pode ultrapassar 5MB");
         }
         String contentType = arquivo.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new BusinessException("Apenas imagens são permitidas para o avatar");
+        if (contentType == null || !Set.of("image/jpeg", "image/png", "image/webp").contains(contentType)) {
+            throw new BusinessException("Apenas imagens JPEG, PNG ou WebP são permitidas");
+        }
+        String originalName = arquivo.getOriginalFilename();
+        if (originalName != null) {
+            String lower = originalName.toLowerCase();
+            if (!lower.endsWith(".jpg") && !lower.endsWith(".jpeg") && !lower.endsWith(".png") && !lower.endsWith(".webp")) {
+                throw new BusinessException("Extensão de arquivo não permitida");
+            }
         }
 
         Usuario usuario = buscarPorId(userId);
@@ -115,7 +123,12 @@ public class PerfilService {
     }
 
     public Path resolverCaminhoAvatar(String nomeArquivo) {
-        return Paths.get(uploadDir).toAbsolutePath().normalize().resolve(nomeArquivo);
+        Path uploadDirectory = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path resolved = uploadDirectory.resolve(nomeArquivo).toAbsolutePath().normalize();
+        if (!resolved.startsWith(uploadDirectory)) {
+            throw new BusinessException("Caminho de arquivo inválido");
+        }
+        return resolved;
     }
 
     private Usuario buscarPorId(UUID userId) {
@@ -135,10 +148,13 @@ public class PerfilService {
         try {
             Path dir = Paths.get(uploadDir).toAbsolutePath().normalize();
             Files.createDirectories(dir);
-            Path destino = dir.resolve(nomeArquivo);
+            Path destino = dir.resolve(nomeArquivo).toAbsolutePath().normalize();
+            if (!destino.startsWith(dir)) {
+                throw new BusinessException("Tentativa de path traversal detectada");
+            }
             Files.copy(arquivo.getInputStream(), destino, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            throw new BusinessException("Erro ao salvar avatar: " + e.getMessage());
+            throw new BusinessException("Erro ao salvar avatar");
         }
     }
 

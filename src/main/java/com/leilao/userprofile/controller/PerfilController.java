@@ -76,8 +76,9 @@ public class PerfilController {
             if (detected != null) contentType = detected;
         } catch (Exception ignored) {
         }
+        String safeFilename = filename.replaceAll("[^a-zA-Z0-9._-]", "_");
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + safeFilename + "\"")
                 .contentType(MediaType.parseMediaType(contentType))
                 .body(resource);
     }
