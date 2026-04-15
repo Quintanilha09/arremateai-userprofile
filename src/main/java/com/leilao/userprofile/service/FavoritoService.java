@@ -59,6 +59,10 @@ public class FavoritoService {
         return favoritoRepository.countByUserId(userId);
     }
 
+    public long contarFavoritosPorImovel(UUID imovelId) {
+        return favoritoRepository.countByImovelId(imovelId);
+    }
+
     private FavoritoResponse mapToResponse(Favorito f) {
         return new FavoritoResponse(f.getId(), f.getUserId(), f.getImovelId(), f.getCreatedAt());
     }

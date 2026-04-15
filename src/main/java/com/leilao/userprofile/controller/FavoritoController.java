@@ -53,4 +53,11 @@ public class FavoritoController {
         long total = favoritoService.contarFavoritos(UUID.fromString(userId));
         return ResponseEntity.ok(Map.of("total", total));
     }
+
+    @GetMapping("/imovel/{imovelId}/count")
+    public ResponseEntity<Map<String, Long>> contarPorImovel(
+            @PathVariable UUID imovelId) {
+        long total = favoritoService.contarFavoritosPorImovel(imovelId);
+        return ResponseEntity.ok(Map.of("total", total));
+    }
 }

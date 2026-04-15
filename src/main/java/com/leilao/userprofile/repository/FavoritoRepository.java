@@ -12,4 +12,5 @@ public interface FavoritoRepository extends JpaRepository<Favorito, UUID> {
     Optional<Favorito> findByUserIdAndImovelId(UUID userId, UUID imovelId);
     boolean existsByUserIdAndImovelId(UUID userId, UUID imovelId);
     long countByUserId(UUID userId);
+    long countByImovelId(UUID imovelId);
 }
