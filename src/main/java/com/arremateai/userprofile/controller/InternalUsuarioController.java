@@ -35,11 +35,16 @@ public class InternalUsuarioController {
             @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey,
             @Valid @RequestBody UsuarioSyncRequest request) {
 
-        log.info("Sync request recebido. internalApiKey=[{}], apiKey=[{}], isBlank={}", 
-                internalApiKey, apiKey, internalApiKey != null ? internalApiKey.isBlank() : "null");
+        log.info("Sync request recebido para usuário={}. Key presente: {}", request.id(), apiKey != null && !apiKey.isBlank());
 
-        if (internalApiKey != null && !internalApiKey.isBlank() && !internalApiKey.equals(apiKey)) {
-            log.warn("Acesso negado. internalApiKey=[{}], apiKey=[{}]", internalApiKey, apiKey);
+        if (internalApiKey == null || internalApiKey.isBlank()) {
+            log.warn("INTERNAL_API_KEY não configurada — endpoint /internal/usuarios desativado");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "Serviço indisponível — configuração ausente"));
+        }
+
+        if (!internalApiKey.equals(apiKey)) {
+            log.warn("Acesso negado ao endpoint interno para usuário={}", request.id());
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Acesso negado"));
         }
