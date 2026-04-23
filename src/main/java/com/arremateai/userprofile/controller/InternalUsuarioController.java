@@ -3,8 +3,7 @@ package com.arremateai.userprofile.controller;
 import com.arremateai.userprofile.dto.UsuarioSyncRequest;
 import com.arremateai.userprofile.repository.UsuarioRepository;
 import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,11 +14,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/internal/usuarios")
 public class InternalUsuarioController {
-
-    private static final Logger log = LoggerFactory.getLogger(InternalUsuarioController.class);
 
     @Value("${app.internal.api-key:}")
     private String internalApiKey;
