@@ -4,8 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -20,10 +19,9 @@ import java.nio.charset.StandardCharsets;
  *
  * Segurança: comparação de segredo em tempo constante para prevenir timing attacks.
  */
+@Slf4j
 @Component
 public class GatewayAuthFilter extends OncePerRequestFilter {
-
-    private static final Logger log = LoggerFactory.getLogger(GatewayAuthFilter.class);
 
     @Value("${app.gateway.secret:}")
     private String gatewaySecret;
