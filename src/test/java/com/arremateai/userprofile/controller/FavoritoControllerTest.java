@@ -108,4 +108,18 @@ class FavoritoControllerTest {
         assertThat(resultado.getStatusCode().value()).isEqualTo(200);
         assertThat(resultado.getBody()).containsEntry("total", 10L);
     }
+
+    // ===== contarPorImovel =====
+
+    @Test
+    @DisplayName("Deve retornar contagem de favoritos por imóvel")
+    void deveRetornarContagemDeFavoritosPorImovel() {
+        when(favoritoService.contarFavoritosPorImovel(IMOVEL_ID)).thenReturn(5L);
+
+        var resultado = favoritoController.contarPorImovel(IMOVEL_ID);
+
+        assertThat(resultado.getStatusCode().value()).isEqualTo(200);
+        assertThat(resultado.getBody()).containsEntry("total", 5L);
+        verify(favoritoService).contarFavoritosPorImovel(IMOVEL_ID);
+    }
 }

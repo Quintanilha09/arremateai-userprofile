@@ -175,4 +175,15 @@ class FavoritoServiceTest {
 
         assertThat(favoritoService.contarFavoritos(USER_ID_PADRAO)).isEqualTo(3L);
     }
+
+    // ---- contarFavoritosPorImovel ----
+
+    @Test
+    @DisplayName("Deve retornar contagem de favoritos por imóvel")
+    void deveRetornarContagemDeFavoritosPorImovel() {
+        when(favoritoRepository.countByImovelId(IMOVEL_ID_PADRAO)).thenReturn(5L);
+
+        assertThat(favoritoService.contarFavoritosPorImovel(IMOVEL_ID_PADRAO)).isEqualTo(5L);
+        verify(favoritoRepository).countByImovelId(IMOVEL_ID_PADRAO);
+    }
 }

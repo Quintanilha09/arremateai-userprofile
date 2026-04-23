@@ -8,11 +8,14 @@ import com.arremateai.userprofile.service.PerfilService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.http.HttpHeaders;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -121,5 +124,20 @@ class PerfilControllerTest {
         var resultado = perfilController.servirAvatar("inexistente.jpg");
 
         assertThat(resultado.getStatusCode().value()).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("Deve servir avatar existente e retornar 200 com Content-Disposition")
+    void deveServirAvatarExistenteERetornar200(@TempDir Path tempDir) throws Exception {
+        Path arquivoAvatar = tempDir.resolve("avatar.jpg");
+        Files.write(arquivoAvatar, "conteudo-imagem".getBytes());
+
+        when(perfilService.resolverCaminhoAvatar("avatar.jpg")).thenReturn(arquivoAvatar);
+
+        var resultado = perfilController.servirAvatar("avatar.jpg");
+
+        assertThat(resultado.getStatusCode().value()).isEqualTo(200);
+        assertThat(resultado.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains("inline");
+        assertThat(resultado.getBody()).isNotNull();
     }
 }
