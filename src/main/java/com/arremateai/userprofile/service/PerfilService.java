@@ -17,7 +17,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -91,16 +90,22 @@ public class PerfilService {
         if (arquivo.getSize() > 5 * 1024 * 1024) {
             throw new BusinessException("Avatar não pode ultrapassar 5MB");
         }
-        String contentType = arquivo.getContentType();
-        if (contentType == null || !Set.of("image/jpeg", "image/png", "image/webp").contains(contentType)) {
-            throw new BusinessException("Apenas imagens JPEG, PNG ou WebP são permitidas");
-        }
+        // Validação de extensão (defesa em profundidade)
         String originalName = arquivo.getOriginalFilename();
         if (originalName != null) {
             String lower = originalName.toLowerCase();
             if (!lower.endsWith(".jpg") && !lower.endsWith(".jpeg") && !lower.endsWith(".png") && !lower.endsWith(".webp")) {
                 throw new BusinessException("Extensão de arquivo não permitida");
             }
+        }
+        // Validação de magic bytes — verifica o conteúdo real do arquivo,
+        // não o Content-Type enviado pelo cliente (que pode ser forjado)
+        try {
+            if (!isImagemValida(arquivo.getBytes())) {
+                throw new BusinessException("Apenas imagens JPEG, PNG ou WebP são permitidas");
+            }
+        } catch (IOException e) {
+            throw new BusinessException("Erro ao processar arquivo de avatar");
         }
 
         Usuario usuario = buscarPorId(userId);
@@ -168,6 +173,39 @@ public class PerfilService {
             Files.deleteIfExists(arquivo);
         } catch (IOException ignored) {
         }
+    }
+
+    /**
+     * Valida o conteúdo real do arquivo verificando os magic bytes (assinatura binária).
+     * Previne bypass via Content-Type forjado pelo cliente.
+     *
+     * JPEG: FF D8 FF
+     * PNG:  89 50 4E 47 0D 0A 1A 0A
+     * WebP: 52 49 46 46 ?? ?? ?? ?? 57 45 42 50 (RIFF....WEBP)
+     */
+    private boolean isImagemValida(byte[] bytes) {
+        if (bytes == null || bytes.length < 12) {
+            return false;
+        }
+        // JPEG: começa com FF D8 FF
+        if ((bytes[0] & 0xFF) == 0xFF
+                && (bytes[1] & 0xFF) == 0xD8
+                && (bytes[2] & 0xFF) == 0xFF) {
+            return true;
+        }
+        // PNG: começa com 89 50 4E 47 0D 0A 1A 0A
+        if ((bytes[0] & 0xFF) == 0x89
+                && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47
+                && bytes[4] == 0x0D && bytes[5] == 0x0A
+                && (bytes[6] & 0xFF) == 0x1A && bytes[7] == 0x0A) {
+            return true;
+        }
+        // WebP: RIFF (bytes 0-3) + WEBP (bytes 8-11)
+        if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46
+                && bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) {
+            return true;
+        }
+        return false;
     }
 
     private PerfilResponse mapToResponse(Usuario usuario) {

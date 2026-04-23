@@ -10,6 +10,7 @@ import com.arremateai.userprofile.repository.UsuarioRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,6 +18,9 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -222,7 +226,7 @@ class PerfilServiceTest {
     @Test
     @DisplayName("Deve lançar exceção quando tipo do avatar for inválido")
     void deveLancarExcecaoQuandoTipoDoAvatarForInvalido() {
-        var arquivo = new MockMultipartFile("file", "avatar.gif", "image/gif", new byte[]{1});
+        var arquivo = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", new byte[]{1});
 
         assertThatThrownBy(() -> perfilService.uploadAvatar(USER_ID_PADRAO, arquivo))
                 .isInstanceOf(BusinessException.class)

@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Map;
 
 @RestController
@@ -43,7 +45,7 @@ public class InternalUsuarioController {
                     .body(Map.of("error", "Serviço indisponível — configuração ausente"));
         }
 
-        if (!internalApiKey.equals(apiKey)) {
+        if (!MessageDigest.isEqual(internalApiKey.getBytes(StandardCharsets.UTF_8), apiKey != null ? apiKey.getBytes(StandardCharsets.UTF_8) : new byte[0])) {
             log.warn("Acesso negado ao endpoint interno para usuário={}", request.id());
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Acesso negado"));
