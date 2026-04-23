@@ -13,12 +13,20 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
-  # JPA
+  # JPA (E16-H7: ddl-auto=validate — schema gerido pelo Flyway)
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: none
+      ddl-auto: validate
     show-sql: false
+
+  # Flyway (E16-H7): tabela de historico dedicada ao userprofile no banco compartilhado
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    table: flyway_schema_history_userprofile
+    baseline-on-migrate: true
+    baseline-version: 0
 
   # Multipart uploads
   servlet:
