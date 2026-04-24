@@ -1,113 +1,235 @@
 package com.arremateai.userprofile.exception;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.validation.BindingResult;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
-
-import java.util.List;
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+
+@DisplayName("GlobalExceptionHandler — respostas RFC 7807 (ProblemDetail)")
 class GlobalExceptionHandlerTest {
 
-    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    private static final String URI_TESTE = "/api/perfil/123";
+    private static final String TIPO_PREFIXO = "urn:arremateai:error:";
 
-    @Test
-    @DisplayName("Deve retornar 400 ao tratar BusinessException com mensagem correta")
-    void deveRetornar400AoTratarBusinessException() {
-        var resultado = handler.handleBusiness(new BusinessException("erro de negócio teste"));
+    private GlobalExceptionHandler handler;
+    private HttpServletRequest requisicao;
 
-        assertThat(resultado.getStatusCode().value()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        assertThat(resultado.getBody()).containsEntry("error", "erro de negócio teste");
-        assertThat(resultado.getBody()).containsKey("timestamp");
-        assertThat(resultado.getBody()).containsKey("status");
+    @BeforeEach
+    void setUp() {
+        handler = new GlobalExceptionHandler();
+        requisicao = mock(HttpServletRequest.class);
+        when(requisicao.getRequestURI()).thenReturn(URI_TESTE);
     }
 
     @Test
-    @DisplayName("Deve retornar 400 ao tratar IllegalArgumentException com mensagem padrão")
-    void deveRetornar400AoTratarIllegalArgumentException() {
-        var resultado = handler.handleIllegalArgument(new IllegalArgumentException("argumento inválido"));
+    @DisplayName("handleBusiness → 400 business")
+    void handleBusinessDeveRetornar400ComTipoBusiness() {
+        ProblemDetail problema = handler.handleBusiness(
+                new BusinessException("Perfil já cadastrado"), requisicao);
 
-        assertThat(resultado.getStatusCode().value()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        assertThat(resultado.getBody()).containsKey("error");
-        assertThat(resultado.getBody()).containsEntry("status", 400);
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(problema.getTitle()).isEqualTo("Regra de negócio violada");
+        assertThat(problema.getDetail()).isEqualTo("Perfil já cadastrado");
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "business");
+        assertThat(problema.getInstance().toString()).isEqualTo(URI_TESTE);
+        assertThat(problema.getProperties()).containsKeys("timestamp", "path");
+        assertThat(problema.getProperties()).containsEntry("path", URI_TESTE);
     }
 
     @Test
-    @DisplayName("Deve retornar 409 ao tratar IllegalStateException")
-    void deveRetornar409AoTratarIllegalStateException() {
-        var resultado = handler.handleIllegalState(new IllegalStateException("estado inválido"));
+    @DisplayName("handleIllegalArgument → 400 illegal-argument")
+    void handleIllegalArgumentDeveRetornar400ComTipoIllegalArgument() {
+        ProblemDetail problema = handler.handleIllegalArgument(
+                new IllegalArgumentException("argumento inválido"), requisicao);
 
-        assertThat(resultado.getStatusCode().value()).isEqualTo(HttpStatus.CONFLICT.value());
-        assertThat(resultado.getBody()).containsKey("error");
-        assertThat(resultado.getBody()).containsEntry("status", 409);
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(problema.getTitle()).isEqualTo("Argumento inválido");
+        assertThat(problema.getDetail()).isEqualTo("argumento inválido");
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "illegal-argument");
     }
 
     @Test
-    @DisplayName("Deve retornar 400 ao tratar MaxUploadSizeExceededException")
-    void deveRetornar400AoTratarMaxUploadSizeExceededException() {
-        var resultado = handler.handleMaxUploadSize(new MaxUploadSizeExceededException(5 * 1024 * 1024L));
+    @DisplayName("handleIllegalState → 409 conflict")
+    void handleIllegalStateDeveRetornar409ComTipoConflict() {
+        ProblemDetail problema = handler.handleIllegalState(
+                new IllegalStateException("estado inválido"), requisicao);
 
-        assertThat(resultado.getStatusCode().value()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        assertThat(resultado.getBody()).containsKey("error");
-        assertThat(resultado.getBody()).containsKey("timestamp");
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(problema.getTitle()).isEqualTo("Operação em conflito com o estado atual");
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "conflict");
     }
 
     @Test
-    @DisplayName("Deve retornar 500 ao tratar Exception genérica")
-    void deveRetornar500AoTratarExcecaoGenerica() {
-        var resultado = handler.handleGeneric(new RuntimeException("erro genérico inesperado"));
+    @DisplayName("handleEntityNotFound → 404 not-found")
+    void handleEntityNotFoundDeveRetornar404ComTipoNotFound() {
+        ProblemDetail problema = handler.handleEntityNotFound(
+                new EntityNotFoundException("Perfil 123 não existe"), requisicao);
 
-        assertThat(resultado.getStatusCode().value()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
-        assertThat(resultado.getBody()).containsKey("error");
-        assertThat(resultado.getBody()).containsEntry("status", 500);
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+        assertThat(problema.getTitle()).isEqualTo("Recurso não encontrado");
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "not-found");
+        assertThat(problema.getDetail()).isEqualTo("Perfil 123 não existe");
     }
 
     @Test
-    @DisplayName("Deve retornar 400 com erros de campo ao tratar MethodArgumentNotValidException")
+    @DisplayName("handleValidation → 400 validation com lista de errors[]")
     @SuppressWarnings("unchecked")
-    void deveRetornar400ComErrosDeCampoAoTratarMethodArgumentNotValidException() {
-        var bindingResult = mock(BindingResult.class);
-        var erroEmail = new FieldError("objeto", "email", "Email inválido");
-        var erroNome = new FieldError("objeto", "nome", "Nome é obrigatório");
-        when(bindingResult.getFieldErrors()).thenReturn(List.of(erroEmail, erroNome));
+    void handleValidationDeveRetornar400ComErrosDeCampo() {
+        BindingResult bindingResult = mock(BindingResult.class);
+        FieldError campoEmail = new FieldError("objeto", "email", "não pode ser vazio");
+        FieldError campoNome = new FieldError("objeto", "nome", "obrigatório");
+        when(bindingResult.getFieldErrors()).thenReturn(List.of(campoEmail, campoNome));
 
-        var ex = mock(MethodArgumentNotValidException.class);
+        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         when(ex.getBindingResult()).thenReturn(bindingResult);
 
-        var resultado = handler.handleValidation(ex);
+        ProblemDetail problema = handler.handleValidation(ex, requisicao);
 
-        assertThat(resultado.getStatusCode().value()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        assertThat(resultado.getBody()).containsKey("fieldErrors");
-        assertThat(resultado.getBody()).containsKey("timestamp");
-        assertThat(resultado.getBody()).containsEntry("status", 400);
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(problema.getTitle()).isEqualTo("Dados de entrada inválidos");
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "validation");
 
-        Map<String, String> fieldErrors = (Map<String, String>) resultado.getBody().get("fieldErrors");
-        assertThat(fieldErrors).containsEntry("email", "Email inválido");
-        assertThat(fieldErrors).containsEntry("nome", "Nome é obrigatório");
+        List<Map<String, String>> erros = (List<Map<String, String>>) problema.getProperties().get("errors");
+        assertThat(erros).hasSize(2);
+        assertThat(erros.get(0)).containsEntry("field", "email").containsEntry("message", "não pode ser vazio");
+        assertThat(erros.get(1)).containsEntry("field", "nome").containsEntry("message", "obrigatório");
     }
 
     @Test
-    @DisplayName("Deve retornar 400 sem erros de campo quando MethodArgumentNotValidException não tiver campos com erro")
+    @DisplayName("handleValidation → usa mensagem padrão quando defaultMessage é nulo")
     @SuppressWarnings("unchecked")
-    void deveRetornar400SemErrosDeCampoQuandoListaVazia() {
-        var bindingResult = mock(BindingResult.class);
-        when(bindingResult.getFieldErrors()).thenReturn(List.of());
+    void handleValidationDeveUsarMensagemPadraoQuandoDefaultMessageNulo() {
+        BindingResult bindingResult = mock(BindingResult.class);
+        FieldError semMensagem = new FieldError("objeto", "campo", null);
+        when(bindingResult.getFieldErrors()).thenReturn(List.of(semMensagem));
 
-        var ex = mock(MethodArgumentNotValidException.class);
+        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         when(ex.getBindingResult()).thenReturn(bindingResult);
 
-        var resultado = handler.handleValidation(ex);
+        ProblemDetail problema = handler.handleValidation(ex, requisicao);
 
-        assertThat(resultado.getStatusCode().value()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        Map<String, String> fieldErrors = (Map<String, String>) resultado.getBody().get("fieldErrors");
-        assertThat(fieldErrors).isEmpty();
+        List<Map<String, String>> erros = (List<Map<String, String>>) problema.getProperties().get("errors");
+        assertThat(erros).hasSize(1);
+        assertThat(erros.get(0)).containsEntry("message", "inválido");
+    }
+
+    @Test
+    @DisplayName("handleConstraintViolation → 400 validation com errors[]")
+    @SuppressWarnings("unchecked")
+    void handleConstraintViolationDeveRetornar400ComErros() {
+        ConstraintViolation<?> violacao = mock(ConstraintViolation.class);
+        Path caminho = mock(Path.class);
+        when(caminho.toString()).thenReturn("metodo.arg0.email");
+        when(violacao.getPropertyPath()).thenReturn(caminho);
+        when(violacao.getMessage()).thenReturn("formato inválido");
+
+        ConstraintViolationException ex = new ConstraintViolationException("violação", Set.of(violacao));
+
+        ProblemDetail problema = handler.handleConstraintViolation(ex, requisicao);
+
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "validation");
+        List<Map<String, String>> erros = (List<Map<String, String>>) problema.getProperties().get("errors");
+        assertThat(erros).hasSize(1);
+        assertThat(erros.get(0)).containsEntry("field", "metodo.arg0.email")
+                .containsEntry("message", "formato inválido");
+    }
+
+    @Test
+    @DisplayName("handleConstraintViolation → usa mensagem padrão quando violação sem mensagem")
+    @SuppressWarnings("unchecked")
+    void handleConstraintViolationDeveUsarMensagemPadraoQuandoNula() {
+        ConstraintViolation<?> violacao = mock(ConstraintViolation.class);
+        Path caminho = mock(Path.class);
+        when(caminho.toString()).thenReturn("campo");
+        when(violacao.getPropertyPath()).thenReturn(caminho);
+        when(violacao.getMessage()).thenReturn(null);
+
+        ConstraintViolationException ex = new ConstraintViolationException("v", Set.of(violacao));
+
+        ProblemDetail problema = handler.handleConstraintViolation(ex, requisicao);
+
+        List<Map<String, String>> erros = (List<Map<String, String>>) problema.getProperties().get("errors");
+        assertThat(erros).hasSize(1);
+        assertThat(erros.get(0)).containsEntry("message", "inválido");
+    }
+
+    @Test
+    @DisplayName("handleMissingHeader → 401 unauthenticated quando header começa com X-User-")
+    void handleMissingHeaderDeveRetornar401QuandoHeaderIdentidadeAusente() {
+        MissingRequestHeaderException ex = mock(MissingRequestHeaderException.class);
+        when(ex.getHeaderName()).thenReturn("X-User-Id");
+        when(ex.getMessage()).thenReturn("Required header 'X-User-Id' is not present.");
+
+        ProblemDetail problema = handler.handleMissingHeader(ex, requisicao);
+
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        assertThat(problema.getTitle()).isEqualTo("Autenticação necessária");
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "unauthenticated");
+        assertThat(problema.getDetail()).contains("X-User-Id");
+    }
+
+    @Test
+    @DisplayName("handleMissingHeader → 400 illegal-argument quando header comum ausente")
+    void handleMissingHeaderDeveRetornar400QuandoHeaderComumAusente() {
+        MissingRequestHeaderException ex = mock(MissingRequestHeaderException.class);
+        when(ex.getHeaderName()).thenReturn("Content-Type");
+        when(ex.getMessage()).thenReturn("Required header 'Content-Type' is not present.");
+
+        ProblemDetail problema = handler.handleMissingHeader(ex, requisicao);
+
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "illegal-argument");
+    }
+
+    @Test
+    @DisplayName("handleMaxUploadSize → 413 payload-too-large")
+    void handleMaxUploadSizeDeveRetornar413() {
+        ProblemDetail problema = handler.handleMaxUploadSize(
+                new MaxUploadSizeExceededException(5 * 1024 * 1024L), requisicao);
+
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        assertThat(problema.getTitle()).isEqualTo("Arquivo excede o tamanho máximo permitido");
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "payload-too-large");
+    }
+
+    @Test
+    @DisplayName("handleGeneric → 500 internal com detalhe padrão sem vazar stack")
+    void handleGenericDeveRetornar500SemVazarDetalheInterno() {
+        ProblemDetail problema = handler.handleGeneric(
+                new RuntimeException("NullPointerException em linha 42"), requisicao);
+
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
+        assertThat(problema.getTitle()).isEqualTo("Erro interno do servidor");
+        assertThat(problema.getDetail()).isEqualTo("Erro interno do servidor");
+        assertThat(problema.getType().toString()).isEqualTo(TIPO_PREFIXO + "internal");
+        assertThat(problema.getDetail()).doesNotContain("NullPointerException");
+    }
+
+    @Test
+    @DisplayName("construirProblema → deve aceitar detalhe nulo sem lançar NPE")
+    void construirProblemaDeveAceitarDetalheNulo() {
+        ProblemDetail problema = handler.handleBusiness(new BusinessException(null), requisicao);
+
+        assertThat(problema).isNotNull();
+        assertThat(problema.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     }
 }
