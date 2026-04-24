@@ -1,5 +1,7 @@
 # 👤 ArremateAI - UserProfile Service
 
+![CI](https://github.com/Quintanilha09/arremateai-userprofile/actions/workflows/ci.yml/badge.svg)
+
 Microsserviço responsável pelo gerenciamento de perfil de usuários, favoritos e configurações personalizadas.
 
 ## 📋 Descrição
