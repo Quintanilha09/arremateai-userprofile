@@ -1,0 +1,47 @@
+# Profile de testes de integração (E16-H10)
+server:
+  port: 0
+
+spring:
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    table: flyway_schema_history_userprofile
+    baseline-on-migrate: true
+    baseline-version: 0
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+app:
+  userprofile:
+    avatar-storage-location: ./uploads/avatars-test
+    base-url: http://localhost:0
+  internal:
+    api-key: test-internal-key
+  gateway:
+    secret: test-gateway-secret
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+  health:
+    mail:
+      enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.arremateai: INFO
+    org.testcontainers: INFO
